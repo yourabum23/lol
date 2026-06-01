@@ -209,12 +209,11 @@ end
 task.spawn(function()
     applyPerformanceBoost()
     disableGUIs()
-
+    
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local muscleEvent = ReplicatedStorage:FindFirstChild("muscleEvent") or player:FindFirstChild("muscleEvent")
-
+    
     local totalKillsLabel, gainedKillsLabel = createStatsGUI()
-
     local leaderstats = player:WaitForChild("leaderstats")
     local killsStat = leaderstats:WaitForChild("Kills")
     local initialKills = killsStat.Value
@@ -222,54 +221,61 @@ task.spawn(function()
     while killAllEnabled do
         local char = player.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then
-            task.wait(0.25) continue
+            task.wait(0.1)
+            continue
         end
-        
+       
         local rightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
         local leftHand = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm")
-      
+     
         if not (rightHand and leftHand) then
-            task.wait(0.2) continue
+            task.wait(0.1)
+            continue
         end
 
         for _, target in ipairs(game.Players:GetPlayers()) do
             if target == player then continue end
-      
+     
             local isFriend = false
             pcall(function()
                 isFriend = player:IsFriendsWith(target.UserId)
             end)
             if isFriend then continue end
-      
+     
             local tChar = target.Character
             if not tChar then continue end
-    
+   
             local tRoot = tChar:FindFirstChild("HumanoidRootPart")
             local tHum = tChar:FindFirstChild("Humanoid")
-    
+   
             if tRoot and tHum and tHum.Health > 0 then
                 pcall(function()
+
                     firetouchinterest(rightHand, tRoot, 1)
                     firetouchinterest(leftHand, tRoot, 1)
-                  
+                    
                     if muscleEvent then
                         muscleEvent:FireServer("punch", "rightHand")
                         muscleEvent:FireServer("punch", "leftHand")
+
+                        task.wait(0.001)
+                        muscleEvent:FireServer("punch", "rightHand")
+                        muscleEvent:FireServer("punch", "leftHand")
                     end
-                  
-                    task.wait(0.0045)
-                  
+                    
+                    task.wait(0.002)
+                    
                     firetouchinterest(rightHand, tRoot, 0)
                     firetouchinterest(leftHand, tRoot, 0)
                 end)
             end
         end
-    
+   
         local currentKills = killsStat.Value
         totalKillsLabel.Text = "Total Kills: " .. currentKills
         gainedKillsLabel.Text = "Gained This Server: " .. (currentKills - initialKills)
-        
-        task.wait(0.068)
+       
+        task.wait(0.015)
     end
 end)
 
