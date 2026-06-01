@@ -77,7 +77,7 @@ local function createStatsGUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 35)
     title.BackgroundTransparency = 1
-    title.Text = "Nigger Hub - Kills"
+    title.Text = "Kills"
     title.TextColor3 = Color3.fromRGB(247, 241, 141)
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
