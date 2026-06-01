@@ -8,7 +8,7 @@ local autoEquipEnabled = true
 local hopEnabled = true
 local performanceBoostEnabled = true
 local disableAllGUIs = true
-local hopAfterSeconds = 40
+local hopAfterSeconds = 60
 
 local autoHopOnDeath = true
 
