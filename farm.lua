@@ -222,7 +222,6 @@ task.spawn(function()
     while killAllEnabled do
         local char = player.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then
-            task.wait(0.05)
             continue
         end
       
@@ -230,7 +229,6 @@ task.spawn(function()
         local leftHand = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm")
     
         if not (rightHand and leftHand) then
-            task.wait(0.05)
             continue
         end
 
@@ -251,11 +249,12 @@ task.spawn(function()
   
             if tRoot and tHum and tHum.Health > 0 then
                 pcall(function()
-
                     firetouchinterest(rightHand, tRoot, 1)
                     firetouchinterest(leftHand, tRoot, 1)
                     
                     if muscleEvent then
+                        muscleEvent:FireServer("punch", "rightHand")
+                        muscleEvent:FireServer("punch", "leftHand")
                         muscleEvent:FireServer("punch", "rightHand")
                         muscleEvent:FireServer("punch", "leftHand")
                         muscleEvent:FireServer("punch", "rightHand")
@@ -271,8 +270,6 @@ task.spawn(function()
         local currentKills = killsStat.Value
         totalKillsLabel.Text = "Total Kills: " .. currentKills
         gainedKillsLabel.Text = "Gained This Server: " .. (currentKills - initialKills)
-      
-        task.wait(0.001)
     end
 end)
 
