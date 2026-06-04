@@ -219,17 +219,23 @@ task.spawn(function()
     local killsStat = leaderstats:WaitForChild("Kills")
     local initialKills = killsStat.Value
 
-    while killAllEnabled do
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if not killAllEnabled then
+            connection:Disconnect()
+            return
+        end
+
         local char = player.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then
-            continue
+            return
         end
       
         local rightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
         local leftHand = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm")
     
         if not (rightHand and leftHand) then
-            continue
+            return
         end
 
         for _, target in ipairs(game.Players:GetPlayers()) do
@@ -253,12 +259,11 @@ task.spawn(function()
                     firetouchinterest(leftHand, tRoot, 1)
                     
                     if muscleEvent then
-                        muscleEvent:FireServer("punch", "rightHand")
-                        muscleEvent:FireServer("punch", "leftHand")
-                        muscleEvent:FireServer("punch", "rightHand")
-                        muscleEvent:FireServer("punch", "leftHand")
-                        muscleEvent:FireServer("punch", "rightHand")
-                        muscleEvent:FireServer("punch", "leftHand")
+
+                        for i = 1, 6 do
+                            muscleEvent:FireServer("punch", "rightHand")
+                            muscleEvent:FireServer("punch", "leftHand")
+                        end
                     end
                     
                     firetouchinterest(rightHand, tRoot, 0)
@@ -270,7 +275,7 @@ task.spawn(function()
         local currentKills = killsStat.Value
         totalKillsLabel.Text = "Total Kills: " .. currentKills
         gainedKillsLabel.Text = "Gained This Server: " .. (currentKills - initialKills)
-    end
+    end)
 end)
 
 print("✅ Script Loaded | Improved Kill All + Stats GUI + Server Hop on Death")
