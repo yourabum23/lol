@@ -219,23 +219,19 @@ task.spawn(function()
     local killsStat = leaderstats:WaitForChild("Kills")
     local initialKills = killsStat.Value
 
-    local connection
-    connection = RunService.Heartbeat:Connect(function()
-        if not killAllEnabled then
-            connection:Disconnect()
-            return
-        end
-
+    while killAllEnabled do
         local char = player.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then
-            return
+            task.wait(0.05)
+            continue
         end
       
         local rightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
         local leftHand = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm")
     
         if not (rightHand and leftHand) then
-            return
+            task.wait(0.05)
+            continue
         end
 
         for _, target in ipairs(game.Players:GetPlayers()) do
@@ -255,15 +251,15 @@ task.spawn(function()
   
             if tRoot and tHum and tHum.Health > 0 then
                 pcall(function()
+
                     firetouchinterest(rightHand, tRoot, 1)
                     firetouchinterest(leftHand, tRoot, 1)
                     
                     if muscleEvent then
-
-                        for i = 1, 6 do
-                            muscleEvent:FireServer("punch", "rightHand")
-                            muscleEvent:FireServer("punch", "leftHand")
-                        end
+                        muscleEvent:FireServer("punch", "rightHand")
+                        muscleEvent:FireServer("punch", "leftHand")
+                        muscleEvent:FireServer("punch", "rightHand")
+                        muscleEvent:FireServer("punch", "leftHand")
                     end
                     
                     firetouchinterest(rightHand, tRoot, 0)
@@ -275,7 +271,9 @@ task.spawn(function()
         local currentKills = killsStat.Value
         totalKillsLabel.Text = "Total Kills: " .. currentKills
         gainedKillsLabel.Text = "Gained This Server: " .. (currentKills - initialKills)
-    end)
+      
+        task.wait(0.001)
+    end
 end)
 
 print("✅ Script Loaded | Improved Kill All + Stats GUI + Server Hop on Death")
