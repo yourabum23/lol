@@ -40,6 +40,8 @@ local function applyPerformanceBoost()
     end)
 end
 
+local totalKillsLabel, gainedKillsLabel, timerLabel
+
 local function createStatsGUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "LarpHubStats"
@@ -72,37 +74,35 @@ local function createStatsGUI()
     title.Font = Enum.Font.GothamBold
     title.Parent = frame
 
-    local totalKills = Instance.new("TextLabel")
-    totalKills.Size = UDim2.new(1, 0, 0, 35)
-    totalKills.Position = UDim2.new(0, 0, 0, 45)
-    totalKills.BackgroundTransparency = 1
-    totalKills.Text = "Total Kills: 0"
-    totalKills.TextColor3 = Color3.fromRGB(255, 255, 255)
-    totalKills.TextScaled = true
-    totalKills.Font = Enum.Font.Gotham
-    totalKills.Parent = frame
+    totalKillsLabel = Instance.new("TextLabel")
+    totalKillsLabel.Size = UDim2.new(1, 0, 0, 35)
+    totalKillsLabel.Position = UDim2.new(0, 0, 0, 45)
+    totalKillsLabel.BackgroundTransparency = 1
+    totalKillsLabel.Text = "Total Kills: 0"
+    totalKillsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    totalKillsLabel.TextScaled = true
+    totalKillsLabel.Font = Enum.Font.Gotham
+    totalKillsLabel.Parent = frame
 
-    local gainedKills = Instance.new("TextLabel")
-    gainedKills.Size = UDim2.new(1, 0, 0, 35)
-    gainedKills.Position = UDim2.new(0, 0, 0, 80)
-    gainedKills.BackgroundTransparency = 1
-    gainedKills.Text = "Gained This Server: 0"
-    gainedKills.TextColor3 = Color3.fromRGB(0, 255, 100)
-    gainedKills.TextScaled = true
-    gainedKills.Font = Enum.Font.Gotham
-    gainedKills.Parent = frame
+    gainedKillsLabel = Instance.new("TextLabel")
+    gainedKillsLabel.Size = UDim2.new(1, 0, 0, 35)
+    gainedKillsLabel.Position = UDim2.new(0, 0, 0, 80)
+    gainedKillsLabel.BackgroundTransparency = 1
+    gainedKillsLabel.Text = "Gained This Server: 0"
+    gainedKillsLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+    gainedKillsLabel.TextScaled = true
+    gainedKillsLabel.Font = Enum.Font.Gotham
+    gainedKillsLabel.Parent = frame
 
-    local timerLabel = Instance.new("TextLabel")
+    timerLabel = Instance.new("TextLabel")
     timerLabel.Size = UDim2.new(1, 0, 0, 35)
     timerLabel.Position = UDim2.new(0, 0, 0, 115)
     timerLabel.BackgroundTransparency = 1
-    timerLabel.Text = "Next Hop: 90s"
+    timerLabel.Text = "Next Hop: " .. hopAfterSeconds .. "s"
     timerLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
     timerLabel.TextScaled = true
     timerLabel.Font = Enum.Font.GothamSemibold
     timerLabel.Parent = frame
-
-    return totalKills, gainedKills, timerLabel
 end
 
 local hasHopped = false
@@ -144,8 +144,6 @@ end
 if hopEnabled then
     task.spawn(function()
         local timeLeft = hopAfterSeconds
-        local _, _, timerLabel = createStatsGUI()
-
         while hopEnabled do
             task.wait(1)
             timeLeft -= 1
@@ -209,7 +207,9 @@ if autoEquipEnabled then
 end
 
 task.spawn(function()
+    createStatsGUI()
     applyPerformanceBoost()
+
     if disableAllGUIs then
         task.spawn(function()
             while disableAllGUIs do
@@ -226,8 +226,6 @@ task.spawn(function()
     end
 
     local muscleEvent = ReplicatedStorage:FindFirstChild("muscleEvent") or player:FindFirstChild("muscleEvent")
-    local totalKillsLabel, gainedKillsLabel, _ = createStatsGUI()
-
     local leaderstats = player:WaitForChild("leaderstats")
     local killsStat = leaderstats:WaitForChild("Kills")
     local initialKills = killsStat.Value
@@ -267,12 +265,10 @@ task.spawn(function()
             local tRebirths = target.leaderstats and target.leaderstats:FindFirstChild("Rebirths")
 
             if tRoot and tHum and tHum.Health > 0 then
-
                 if (not durability or durability.Value <= myStrength * 2.2) and
                    (not tRebirths or tRebirths.Value <= 200000) then
 
                     pcall(function()
-
                         if muscleEvent then
                             muscleEvent:FireServer("punch", "rightHand")
                             muscleEvent:FireServer("punch", "leftHand")
@@ -289,11 +285,15 @@ task.spawn(function()
         end
 
         local currentKills = killsStat.Value
-        totalKillsLabel.Text = "Total Kills: " .. currentKills
-        gainedKillsLabel.Text = "Gained This Server: " .. (currentKills - initialKills)
+        if totalKillsLabel then
+            totalKillsLabel.Text = "Total Kills: " .. currentKills
+        end
+        if gainedKillsLabel then
+            gainedKillsLabel.Text = "Gained This Server: " .. (currentKills - initialKills)
+        end
 
         task.wait(0.001)
     end
 end)
 
-print("LarpHub Kill-All V3 Loaded | Faster Kills + Red Outline GUI + Hop Timer")
+print("LarpHub Kill-All V3 Loaded | Hop Timer Fixed")
