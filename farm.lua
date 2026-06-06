@@ -1,299 +1,168 @@
+workspace.FallenPartsDestroyHeight = 0/0
+
 local player = game.Players.LocalPlayer
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Lighting = game:GetService("Lighting")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local OG_Kills = tonumber(player.leaderstats.Kills.Value)
+local currentkills = OG_Kills
 
-local killAllEnabled = true
-local autoEquipEnabled = true
-local hopEnabled = true
-local performanceBoostEnabled = true
-local disableAllGUIs = false
-local hopAfterSeconds = 60
-local autoHopOnDeath = false
+local SafeSpot = Instance.new("Part")
+SafeSpot.Name = "safety"
+SafeSpot.Position = Vector3.new(0, -1000, 0)
+SafeSpot.Size = Vector3.new(500, 1, 500)
+SafeSpot.Anchored = true
+SafeSpot.Parent = workspace
 
-setfpscap(60)
+player.Character:MoveTo(SafeSpot.Position)
 
-getgenv().AvoidedServers = getgenv().AvoidedServers or {}
-local maxAvoid = 400
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoKillerGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
-local function addToAvoidList(jobId)
-    if not table.find(getgenv().AvoidedServers, jobId) then
-        table.insert(getgenv().AvoidedServers, jobId)
-        if #getgenv().AvoidedServers > maxAvoid then
-            table.remove(getgenv().AvoidedServers, 1)
-        end
-    end
-end
-addToAvoidList(game.JobId)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 280, 0, 160)
+MainFrame.Position = UDim2.new(0, 20, 0, 20)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
 
-local function applyPerformanceBoost()
-    if not performanceBoostEnabled then return end
-    pcall(function()
-        Lighting.GlobalShadows = false
-        Lighting.Brightness = 1
-        Lighting.ClockTime = 12
-        Lighting.FogEnd = 1e5
-        Lighting.FogStart = 1e5
-        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-        setfpscap(9999)
-    end)
-end
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(255, 0, 0)
+Stroke.Thickness = 2
+Stroke.Parent = MainFrame
 
-local totalKillsLabel, gainedKillsLabel, timerLabel
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 12)
+Corner.Parent = MainFrame
 
-local function createStatsGUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "LarpHubStats"
-    screenGui.ResetOnSpawn = false
-    screenGui.DisplayOrder = 9999
-    screenGui.Parent = player:WaitForChild("PlayerGui")
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundTransparency = 1
+Title.Text = "🔥 Auto Killer V2"
+Title.TextColor3 = Color3.fromRGB(255, 50, 50)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 260, 0, 160)
-    frame.Position = UDim2.new(1, -280, 0, 20)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    frame.BorderSizePixel = 0
-    frame.Parent = screenGui
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = Title
 
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 0, 0)
-    stroke.Thickness = 2.5
-    stroke.Parent = frame
+local KillsLabel = Instance.new("TextLabel")
+KillsLabel.Size = UDim2.new(1, -20, 0, 35)
+KillsLabel.Position = UDim2.new(0, 10, 0, 50)
+KillsLabel.BackgroundTransparency = 1
+KillsLabel.Text = "Kills: 0 (+0)"
+KillsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+KillsLabel.TextScaled = true
+KillsLabel.Font = Enum.Font.GothamSemibold
+KillsLabel.Parent = MainFrame
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 16)
-    corner.Parent = frame
+local TimerLabel = Instance.new("TextLabel")
+TimerLabel.Size = UDim2.new(1, -20, 0, 35)
+TimerLabel.Position = UDim2.new(0, 10, 0, 95)
+TimerLabel.BackgroundTransparency = 1
+TimerLabel.Text = "Next Hop: 120s"
+TimerLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+TimerLabel.TextScaled = true
+TimerLabel.Font = Enum.Font.GothamSemibold
+TimerLabel.Parent = MainFrame
 
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.BackgroundTransparency = 1
-    title.Text = "Auto Killer"
-    title.TextColor3 = Color3.fromRGB(255, 50, 50)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = frame
-
-    totalKillsLabel = Instance.new("TextLabel")
-    totalKillsLabel.Size = UDim2.new(1, 0, 0, 35)
-    totalKillsLabel.Position = UDim2.new(0, 0, 0, 45)
-    totalKillsLabel.BackgroundTransparency = 1
-    totalKillsLabel.Text = "Total Kills: 0"
-    totalKillsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    totalKillsLabel.TextScaled = true
-    totalKillsLabel.Font = Enum.Font.Gotham
-    totalKillsLabel.Parent = frame
-
-    gainedKillsLabel = Instance.new("TextLabel")
-    gainedKillsLabel.Size = UDim2.new(1, 0, 0, 35)
-    gainedKillsLabel.Position = UDim2.new(0, 0, 0, 80)
-    gainedKillsLabel.BackgroundTransparency = 1
-    gainedKillsLabel.Text = "Gained This Server: 0"
-    gainedKillsLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-    gainedKillsLabel.TextScaled = true
-    gainedKillsLabel.Font = Enum.Font.Gotham
-    gainedKillsLabel.Parent = frame
-
-    timerLabel = Instance.new("TextLabel")
-    timerLabel.Size = UDim2.new(1, 0, 0, 35)
-    timerLabel.Position = UDim2.new(0, 0, 0, 115)
-    timerLabel.BackgroundTransparency = 1
-    timerLabel.Text = "Next Hop: " .. hopAfterSeconds .. "s"
-    timerLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-    timerLabel.TextScaled = true
-    timerLabel.Font = Enum.Font.GothamSemibold
-    timerLabel.Parent = frame
-end
-
-local hasHopped = false
-local function GETOUT(reason)
-    if hasHopped then return end
-    hasHopped = true
-    print("🔄 Hopping | " .. (reason or "Auto Hop"))
-
-    local PlaceId = game.PlaceId
-    local JobId = game.JobId
-    local servers = {}
-
-    local success, req = pcall(function()
-        return game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
-    end)
-
-    if success and req then
-        local body = HttpService:JSONDecode(req)
-        if body and body.data then
-            for _, v in ipairs(body.data) do
-                if v.playing and v.maxPlayers and v.playing < v.maxPlayers and v.id ~= JobId then
-                    table.insert(servers, v.id)
-                end
-            end
-        end
-    end
-
-    if #servers > 0 then
-        local chosen = servers[math.random(1, #servers)]
-        addToAvoidList(chosen)
-        TeleportService:TeleportToPlaceInstance(PlaceId, chosen, player)
-    else
-        print("⚠️ No servers found, retrying...")
-        hasHopped = false
-        task.wait(5)
-    end
-end
-
-if hopEnabled then
-    task.spawn(function()
-        local timeLeft = hopAfterSeconds
-        while hopEnabled do
-            task.wait(1)
-            timeLeft -= 1
-            if timerLabel then
-                timerLabel.Text = "Next Hop: " .. timeLeft .. "s"
-            end
-            if timeLeft <= 0 then
-                GETOUT("Auto hop timer")
-                timeLeft = hopAfterSeconds
-            end
-        end
-    end)
-end
-
-task.spawn(function()
-    while true do
-        local char = player.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.Died:Connect(function()
-                if not autoHopOnDeath then return end
-                task.wait(1.5)
-
-                local killer = nil
-                for _, plr in ipairs(game.Players:GetPlayers()) do
-                    if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                        local dist = (plr.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
-                        if dist < 60 then
-                            local theirStr = plr.leaderstats and plr.leaderstats:FindFirstChild("Strength")
-                            local myStr = player.leaderstats and player.leaderstats:FindFirstChild("Strength")
-                            if theirStr and myStr and theirStr.Value > myStr.Value * 1.5 then
-                                killer = plr
-                                break
-                            end
-                        end
-                    end
-                end
-
-                if killer then
-                    print("💀 Died to stronger player (" .. killer.Name .. ") → Hopping")
-                    GETOUT("Died to stronger player")
-                end
-            end)
-        end
-        task.wait(2)
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
     end
 end)
 
-if autoEquipEnabled then
-    task.spawn(function()
-        while autoEquipEnabled do
-            local char = player.Character
-            if char then
-                local punch = player.Backpack:FindFirstChild("Punch")
-                if punch and not char:FindFirstChild("Punch") then
-                    punch.Parent = char
-                end
-            end
-            task.wait(0.1)
+MainFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local function GETOUT()
+    local Services = setmetatable({}, { __index = function(self, name)
+        local success, cache = pcall(function() return cloneref(game:GetService(name)) end)
+        if success then
+            rawset(self, name, cache)
+            return cache
         end
-    end)
-end
+    end})
 
-task.spawn(function()
-    createStatsGUI()
-    applyPerformanceBoost()
+    local PlaceId, JobId = game.PlaceId, game.JobId
+    local servers = {}
+    local req = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
+    local body = Services.HttpService:JSONDecode(req)
 
-    if disableAllGUIs then
-        task.spawn(function()
-            while disableAllGUIs do
-                pcall(function()
-                    for _, gui in ipairs(player.PlayerGui:GetChildren()) do
-                        if gui:IsA("ScreenGui") and gui.Name ~= "LarpHubStats" then
-                            gui.Enabled = false
-                        end
-                    end
-                end)
-                task.wait(8)
+    if body and body.data then
+        for _, v in ipairs(body.data) do
+            if v.playing and v.maxPlayers and v.playing < v.maxPlayers and v.id ~= JobId then
+                table.insert(servers, v.id)
             end
-        end)
+        end
     end
 
-    local muscleEvent = ReplicatedStorage:FindFirstChild("muscleEvent") or player:FindFirstChild("muscleEvent")
-    local leaderstats = player:WaitForChild("leaderstats")
-    local killsStat = leaderstats:WaitForChild("Kills")
-    local initialKills = killsStat.Value
+    if #servers >= 1 then
+        Services.TeleportService:TeleportToPlaceInstance(PlaceId, servers[math.random(1, #servers)], player)
+    end
+end
 
-    workspace.FallenPartsDestroyHeight = 0/0
+local serverTime = 120
+spawn(function()
+    while true do
+        task.wait(1)
+        serverTime -= 1
+        if serverTime <= 0 then serverTime = 120 end
+        TimerLabel.Text = "Next Hop: " .. serverTime .. "s"
+    end
+end)
 
-    while killAllEnabled do
-        local char = player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then
-            task.wait(0.05)
-            continue
+while true do
+    task.wait(0.09)
+    pcall(function()
+        currentkills = tonumber(player.leaderstats.Kills.Value)
+        
+        local gained = currentkills - OG_Kills
+        KillsLabel.Text = "Kills: " .. currentkills .. " (+" .. gained .. ")"
+
+        local punch = player.Backpack:FindFirstChild("Punch") or (player.Character and player.Character:FindFirstChild("Punch"))
+        if punch and punch.Parent == player.Backpack then
+            punch.Parent = player.Character
         end
-
-        local rightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
-        local leftHand = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm")
-
-        if not (rightHand and leftHand) then
-            task.wait(0.05)
-            continue
-        end
-
-        local myStrength = leaderstats.Strength.Value
 
         for _, target in ipairs(game.Players:GetPlayers()) do
-            if target == player then continue end
+            if target ~= player and target.Character and target:FindFirstChild("Durability") and target:FindFirstChild("leaderstats") then
+                if target.Durability.Value <= player.leaderstats.Strength.Value * 2 and target.leaderstats.Rebirths.Value <= 200000 then
+                    local root = target.Character:FindFirstChild("HumanoidRootPart")
+                    local rHand = player.Character and player.Character:FindFirstChild("RightHand")
+                    local lHand = player.Character and player.Character:FindFirstChild("LeftHand")
 
-            local isFriend = false
-            pcall(function() isFriend = player:IsFriendsWith(target.UserId) end)
-            if isFriend then continue end
-
-            local tChar = target.Character
-            if not tChar then continue end
-
-            local tRoot = tChar:FindFirstChild("HumanoidRootPart")
-            local tHum = tChar:FindFirstChild("Humanoid")
-            local durability = target:FindFirstChild("Durability")
-            local tRebirths = target.leaderstats and target.leaderstats:FindFirstChild("Rebirths")
-
-            if tRoot and tHum and tHum.Health > 0 then
-                if (not durability or durability.Value <= myStrength * 2.2) and
-                   (not tRebirths or tRebirths.Value <= 200000) then
-
-                    pcall(function()
-                        if muscleEvent then
-                            muscleEvent:FireServer("punch", "rightHand")
-                            muscleEvent:FireServer("punch", "leftHand")
-                        end
-
-                        firetouchinterest(rightHand, tRoot, 1)
-                        firetouchinterest(leftHand, tRoot, 1)
-                        task.wait(0.015)
-                        firetouchinterest(rightHand, tRoot, 0)
-                        firetouchinterest(leftHand, tRoot, 0)
-                    end)
+                    if root and rHand and lHand then
+                        game.Players.LocalPlayer.muscleEvent:FireServer("punch", "rightHand")
+                        firetouchinterest(rHand, root, 1)
+                        firetouchinterest(lHand, root, 1)
+                        firetouchinterest(rHand, root, 0)
+                        firetouchinterest(lHand, root, 0)
+                    end
                 end
             end
         end
 
-        local currentKills = killsStat.Value
-        if totalKillsLabel then
-            totalKillsLabel.Text = "Total Kills: " .. currentKills
+        local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+        if (humanoid and humanoid.Health <= humanoid.MaxHealth / 10) or 
+           (game.Workspace.DistributedGameTime >= 120) or 
+           (#game.Players:GetPlayers() <= 9) then
+            GETOUT()
         end
-        if gainedKillsLabel then
-            gainedKillsLabel.Text = "Gained This Server: " .. (currentKills - initialKills)
-        end
-
-        task.wait(0.001)
-    end
-end)
-
-print("LarpHub Kill-All V3 Loaded | Hop Timer Fixed")
+    end)
+end
