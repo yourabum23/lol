@@ -2,17 +2,17 @@ local player = game.Players.LocalPlayer
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local killAllEnabled = true
 local autoEquipEnabled = true
 local hopEnabled = true
 local performanceBoostEnabled = true
-local disableAllGUIs = true
+local disableAllGUIs = false
 local hopAfterSeconds = 60
+local autoHopOnDeath = false
 
-local autoHopOnDeath = true
-
-setfpscap(50)
+setfpscap(60)
 
 getgenv().AvoidedServers = getgenv().AvoidedServers or {}
 local maxAvoid = 400
@@ -40,22 +40,6 @@ local function applyPerformanceBoost()
     end)
 end
 
-local function disableGUIs()
-    if not disableAllGUIs then return end
-    task.spawn(function()
-        while disableAllGUIs do
-            pcall(function()
-                for _, gui in ipairs(player.PlayerGui:GetChildren()) do
-                    if gui:IsA("ScreenGui") and gui.Name ~= "LarpHubStats" then
-                        gui.Enabled = false
-                    end
-                end
-            end)
-            task.wait(8)
-        end
-    end)
-end
-
 local function createStatsGUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "LarpHubStats"
@@ -64,28 +48,33 @@ local function createStatsGUI()
     screenGui.Parent = player:WaitForChild("PlayerGui")
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 240, 0, 130)
-    frame.Position = UDim2.new(1, -260, 0, 20)
+    frame.Size = UDim2.new(0, 260, 0, 160)
+    frame.Position = UDim2.new(1, -280, 0, 20)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     frame.BorderSizePixel = 0
     frame.Parent = screenGui
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 0, 0)
+    stroke.Thickness = 2.5
+    stroke.Parent = frame
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 16)
     corner.Parent = frame
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 35)
+    title.Size = UDim2.new(1, 0, 0, 40)
     title.BackgroundTransparency = 1
-    title.Text = "Kills"
-    title.TextColor3 = Color3.fromRGB(247, 241, 141)
+    title.Text = "Auto Killer"
+    title.TextColor3 = Color3.fromRGB(255, 50, 50)
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
     title.Parent = frame
 
     local totalKills = Instance.new("TextLabel")
     totalKills.Size = UDim2.new(1, 0, 0, 35)
-    totalKills.Position = UDim2.new(0, 0, 0, 40)
+    totalKills.Position = UDim2.new(0, 0, 0, 45)
     totalKills.BackgroundTransparency = 1
     totalKills.Text = "Total Kills: 0"
     totalKills.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -103,29 +92,35 @@ local function createStatsGUI()
     gainedKills.Font = Enum.Font.Gotham
     gainedKills.Parent = frame
 
-    return totalKills, gainedKills
+    local timerLabel = Instance.new("TextLabel")
+    timerLabel.Size = UDim2.new(1, 0, 0, 35)
+    timerLabel.Position = UDim2.new(0, 0, 0, 115)
+    timerLabel.BackgroundTransparency = 1
+    timerLabel.Text = "Next Hop: 90s"
+    timerLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    timerLabel.TextScaled = true
+    timerLabel.Font = Enum.Font.GothamSemibold
+    timerLabel.Parent = frame
+
+    return totalKills, gainedKills, timerLabel
 end
 
 local hasHopped = false
 local function GETOUT(reason)
     if hasHopped then return end
     hasHopped = true
-    print("🔄 " .. (reason or "Hopping") .. " | Timer complete")
-    
-    local Services = setmetatable({}, { __index = function(self, name)
-        return cloneref(game:GetService(name))
-    end})
-   
+    print("🔄 Hopping | " .. (reason or "Auto Hop"))
+
     local PlaceId = game.PlaceId
     local JobId = game.JobId
     local servers = {}
-   
+
     local success, req = pcall(function()
         return game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
     end)
-   
+
     if success and req then
-        local body = Services.HttpService:JSONDecode(req)
+        local body = HttpService:JSONDecode(req)
         if body and body.data then
             for _, v in ipairs(body.data) do
                 if v.playing and v.maxPlayers and v.playing < v.maxPlayers and v.id ~= JobId then
@@ -134,14 +129,13 @@ local function GETOUT(reason)
             end
         end
     end
-   
+
     if #servers > 0 then
         local chosen = servers[math.random(1, #servers)]
         addToAvoidList(chosen)
-        print("🎯 Hopping to new server")
         TeleportService:TeleportToPlaceInstance(PlaceId, chosen, player)
     else
-        print("⚠️ No servers, retrying...")
+        print("⚠️ No servers found, retrying...")
         hasHopped = false
         task.wait(5)
     end
@@ -149,10 +143,18 @@ end
 
 if hopEnabled then
     task.spawn(function()
+        local timeLeft = hopAfterSeconds
+        local _, _, timerLabel = createStatsGUI()
+
         while hopEnabled do
-            task.wait(hopAfterSeconds)
-            if not hasHopped then
+            task.wait(1)
+            timeLeft -= 1
+            if timerLabel then
+                timerLabel.Text = "Next Hop: " .. timeLeft .. "s"
+            end
+            if timeLeft <= 0 then
                 GETOUT("Auto hop timer")
+                timeLeft = hopAfterSeconds
             end
         end
     end)
@@ -164,23 +166,23 @@ task.spawn(function()
         if char and char:FindFirstChild("Humanoid") then
             char.Humanoid.Died:Connect(function()
                 if not autoHopOnDeath then return end
-                
-                local killer = nil
+                task.wait(1.5)
 
+                local killer = nil
                 for _, plr in ipairs(game.Players:GetPlayers()) do
                     if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                         local dist = (plr.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
-                        if dist < 50 then
-                            local theirStrength = plr.leaderstats and plr.leaderstats:FindFirstChild("Strength")
-                            local myStrength = player.leaderstats and player.leaderstats:FindFirstChild("Strength")
-                            if theirStrength and myStrength and theirStrength.Value > myStrength.Value * 1.5 then
+                        if dist < 60 then
+                            local theirStr = plr.leaderstats and plr.leaderstats:FindFirstChild("Strength")
+                            local myStr = player.leaderstats and player.leaderstats:FindFirstChild("Strength")
+                            if theirStr and myStr and theirStr.Value > myStr.Value * 1.5 then
                                 killer = plr
                                 break
                             end
                         end
                     end
                 end
-                
+
                 if killer then
                     print("💀 Died to stronger player (" .. killer.Name .. ") → Hopping")
                     GETOUT("Died to stronger player")
@@ -208,16 +210,29 @@ end
 
 task.spawn(function()
     applyPerformanceBoost()
-    disableGUIs()
-   
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local muscleEvent = ReplicatedStorage:FindFirstChild("muscleEvent") 
-                     or player:FindFirstChild("muscleEvent")
-   
-    local totalKillsLabel, gainedKillsLabel = createStatsGUI()
+    if disableAllGUIs then
+        task.spawn(function()
+            while disableAllGUIs do
+                pcall(function()
+                    for _, gui in ipairs(player.PlayerGui:GetChildren()) do
+                        if gui:IsA("ScreenGui") and gui.Name ~= "LarpHubStats" then
+                            gui.Enabled = false
+                        end
+                    end
+                end)
+                task.wait(8)
+            end
+        end)
+    end
+
+    local muscleEvent = ReplicatedStorage:FindFirstChild("muscleEvent") or player:FindFirstChild("muscleEvent")
+    local totalKillsLabel, gainedKillsLabel, _ = createStatsGUI()
+
     local leaderstats = player:WaitForChild("leaderstats")
     local killsStat = leaderstats:WaitForChild("Kills")
     local initialKills = killsStat.Value
+
+    workspace.FallenPartsDestroyHeight = 0/0
 
     while killAllEnabled do
         local char = player.Character
@@ -225,55 +240,60 @@ task.spawn(function()
             task.wait(0.05)
             continue
         end
-      
+
         local rightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
         local leftHand = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm")
-    
+
         if not (rightHand and leftHand) then
             task.wait(0.05)
             continue
         end
 
+        local myStrength = leaderstats.Strength.Value
+
         for _, target in ipairs(game.Players:GetPlayers()) do
             if target == player then continue end
 
             local isFriend = false
-            pcall(function()
-                isFriend = player:IsFriendsWith(target.UserId)
-            end)
+            pcall(function() isFriend = player:IsFriendsWith(target.UserId) end)
             if isFriend then continue end
 
             local tChar = target.Character
             if not tChar then continue end
-  
+
             local tRoot = tChar:FindFirstChild("HumanoidRootPart")
             local tHum = tChar:FindFirstChild("Humanoid")
-  
-            if tRoot and tHum and tHum.Health > 0 then
-                pcall(function()
+            local durability = target:FindFirstChild("Durability")
+            local tRebirths = target.leaderstats and target.leaderstats:FindFirstChild("Rebirths")
 
-                    firetouchinterest(rightHand, tRoot, 1)
-                    firetouchinterest(leftHand, tRoot, 1)
-                    
-                    if muscleEvent then
-                        muscleEvent:FireServer("punch", "rightHand")
-                        muscleEvent:FireServer("punch", "leftHand")
-                        muscleEvent:FireServer("punch", "rightHand")
-                        muscleEvent:FireServer("punch", "leftHand")
-                    end
-                    
-                    firetouchinterest(rightHand, tRoot, 0)
-                    firetouchinterest(leftHand, tRoot, 0)
-                end)
+            if tRoot and tHum and tHum.Health > 0 then
+
+                if (not durability or durability.Value <= myStrength * 2.2) and
+                   (not tRebirths or tRebirths.Value <= 200000) then
+
+                    pcall(function()
+
+                        if muscleEvent then
+                            muscleEvent:FireServer("punch", "rightHand")
+                            muscleEvent:FireServer("punch", "leftHand")
+                        end
+
+                        firetouchinterest(rightHand, tRoot, 1)
+                        firetouchinterest(leftHand, tRoot, 1)
+                        task.wait(0.015)
+                        firetouchinterest(rightHand, tRoot, 0)
+                        firetouchinterest(leftHand, tRoot, 0)
+                    end)
+                end
             end
         end
 
         local currentKills = killsStat.Value
         totalKillsLabel.Text = "Total Kills: " .. currentKills
         gainedKillsLabel.Text = "Gained This Server: " .. (currentKills - initialKills)
-      
+
         task.wait(0.001)
     end
 end)
 
-print("✅ Script Loaded | Improved Kill All + Stats GUI + Server Hop on Death")
+print("LarpHub Kill-All V3 Loaded | Faster Kills + Red Outline GUI + Hop Timer")
